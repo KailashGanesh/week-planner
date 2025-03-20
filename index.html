@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Tracker Calendar</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Preset Settings Panel -->
+        <div class="settings-panel">
+            <h3>Default Time Blocks</h3>
+            
+            <!-- Sleep Settings -->
+            <div class="preset-section">
+                <h4>
+                    Sleep Schedule
+                    <span class="toggle-custom" data-target="sleepCustomDays">Custom Days</span>
+                </h4>
+                <div class="time-preset">
+                    <div class="time-inputs">
+                        <input type="time" id="defaultSleepStart" value="23:00">
+                        <span>to</span>
+                        <input type="time" id="defaultSleepEnd" value="07:00">
+                    </div>
+                </div>
+                <div class="preset-buttons">
+                    <button id="applySleepAll" class="preset-button">All Days</button>
+                    <button id="applySleepWeekdays" class="preset-button">Weekdays</button>
+                </div>
+                <div id="sleepCustomDays" class="custom-days">
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="sleepSun" data-day="0">
+                        <label for="sleepSun">Sunday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="sleep" value="23:00">
+                                <span>to</span>
+                                <input type="time" data-type="sleep" value="07:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="sleepMon" data-day="1">
+                        <label for="sleepMon">Monday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="sleep" value="23:00">
+                                <span>to</span>
+                                <input type="time" data-type="sleep" value="07:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="sleepTue" data-day="2">
+                        <label for="sleepTue">Tuesday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="sleep" value="23:00">
+                                <span>to</span>
+                                <input type="time" data-type="sleep" value="07:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="sleepWed" data-day="3">
+                        <label for="sleepWed">Wednesday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="sleep" value="23:00">
+                                <span>to</span>
+                                <input type="time" data-type="sleep" value="07:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="sleepThu" data-day="4">
+                        <label for="sleepThu">Thursday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="sleep" value="23:00">
+                                <span>to</span>
+                                <input type="time" data-type="sleep" value="07:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="sleepFri" data-day="5">
+                        <label for="sleepFri">Friday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="sleep" value="23:00">
+                                <span>to</span>
+                                <input type="time" data-type="sleep" value="07:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="sleepSat" data-day="6">
+                        <label for="sleepSat">Saturday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="sleep" value="23:00">
+                                <span>to</span>
+                                <input type="time" data-type="sleep" value="07:00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Work Settings -->
+            <div class="preset-section">
+                <h4>
+                    Work Schedule
+                    <span class="toggle-custom" data-target="workCustomDays">Custom Days</span>
+                </h4>
+                <div class="time-preset">
+                    <div class="time-inputs">
+                        <input type="time" id="defaultWorkStart" value="09:00">
+                        <span>to</span>
+                        <input type="time" id="defaultWorkEnd" value="17:00">
+                    </div>
+                </div>
+                <div class="preset-buttons">
+                    <button id="applyWorkAll" class="preset-button">All Days</button>
+                    <button id="applyWorkWeekdays" class="preset-button">Weekdays</button>
+                </div>
+                <div id="workCustomDays" class="custom-days">
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="workSun" data-day="0">
+                        <label for="workSun">Sunday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="work" value="09:00">
+                                <span>to</span>
+                                <input type="time" data-type="work" value="17:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="workMon" data-day="1">
+                        <label for="workMon">Monday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="work" value="09:00">
+                                <span>to</span>
+                                <input type="time" data-type="work" value="17:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="workTue" data-day="2">
+                        <label for="workTue">Tuesday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="work" value="09:00">
+                                <span>to</span>
+                                <input type="time" data-type="work" value="17:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="workWed" data-day="3">
+                        <label for="workWed">Wednesday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="work" value="09:00">
+                                <span>to</span>
+                                <input type="time" data-type="work" value="17:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="workThu" data-day="4">
+                        <label for="workThu">Thursday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="work" value="09:00">
+                                <span>to</span>
+                                <input type="time" data-type="work" value="17:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="workFri" data-day="5">
+                        <label for="workFri">Friday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="work" value="09:00">
+                                <span>to</span>
+                                <input type="time" data-type="work" value="17:00">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="day-checkbox">
+                        <input type="checkbox" id="workSat" data-day="6">
+                        <label for="workSat">Saturday</label>
+                        <div class="custom-time-inputs">
+                            <div class="time-inputs">
+                                <input type="time" data-type="work" value="09:00">
+                                <span>to</span>
+                                <input type="time" data-type="work" value="17:00">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Day-specific Overrides -->
+            <div class="preset-section">
+                <h4>Daily Overrides</h4>
+                <div id="dayOverrides">
+                    <!-- Will be populated with JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Calendar -->
+        <div class="calendar-container">
+            <div class="calendar-header">
+                <button id="prevWeek">&lt;</button>
+                <h2 id="weekDisplay"></h2>
+                <button id="nextWeek">&gt;</button>
+            </div>
+            
+            <div class="calendar-grid">
+                <div class="time-column">
+                    <div class="header-cell"></div>
+                    <div class="time-cell" data-hour="0">12 AM</div>
+                    <div class="time-cell" data-hour="1">1 AM</div>
+                    <div class="time-cell" data-hour="2">2 AM</div>
+                    <div class="time-cell" data-hour="3">3 AM</div>
+                    <div class="time-cell" data-hour="4">4 AM</div>
+                    <div class="time-cell" data-hour="5">5 AM</div>
+                    <div class="time-cell" data-hour="6">6 AM</div>
+                    <div class="time-cell" data-hour="7">7 AM</div>
+                    <div class="time-cell" data-hour="8">8 AM</div>
+                    <div class="time-cell" data-hour="9">9 AM</div>
+                    <div class="time-cell" data-hour="10">10 AM</div>
+                    <div class="time-cell" data-hour="11">11 AM</div>
+                    <div class="time-cell" data-hour="12">12 PM</div>
+                    <div class="time-cell" data-hour="13">1 PM</div>
+                    <div class="time-cell" data-hour="14">2 PM</div>
+                    <div class="time-cell" data-hour="15">3 PM</div>
+                    <div class="time-cell" data-hour="16">4 PM</div>
+                    <div class="time-cell" data-hour="17">5 PM</div>
+                    <div class="time-cell" data-hour="18">6 PM</div>
+                    <div class="time-cell" data-hour="19">7 PM</div>
+                    <div class="time-cell" data-hour="20">8 PM</div>
+                    <div class="time-cell" data-hour="21">9 PM</div>
+                    <div class="time-cell" data-hour="22">10 PM</div>
+                    <div class="time-cell" data-hour="23">11 PM</div>
+                </div>
+                <div id="daysGrid" class="days-grid"></div>
+            </div>
+        </div>
+
+        <!-- Enhanced Activity Summary -->
+        <div class="activity-summary">
+            <h3>Activity Summary</h3>
+            <div class="summary-filters">
+                <select id="summaryPeriod">
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+
+            <!-- Time Distribution -->
+            <div class="summary-section">
+                <h4>Time Distribution</h4>
+                <div class="pie-chart" id="timeDistribution">
+                    <!-- Will be populated with JavaScript -->
+                </div>
+            </div>
+
+            <!-- Activity List -->
+            <div class="summary-section">
+                <h4>Activities</h4>
+                <div id="activityList" class="activity-list">
+                    <!-- Will be populated with JavaScript -->
+                </div>
+            </div>
+
+            <!-- Daily Averages -->
+            <div class="summary-section">
+                <h4>Daily Averages</h4>
+                <div id="dailyAverages" class="averages-list">
+                    <div class="average-item">
+                        <span>Sleep:</span>
+                        <span id="avgSleep">0h 0m</span>
+                    </div>
+                    <div class="average-item">
+                        <span>Work:</span>
+                        <span id="avgWork">0h 0m</span>
+                    </div>
+                    <div class="average-item">
+                        <span>Other Activities:</span>
+                        <span id="avgOther">0h 0m</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="total-time">
+                <strong>Total Time Tracked: </strong>
+                <span id="totalTime">0h 0m</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Modal -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Add Activity</h3>
+            <form id="eventForm">
+                <div class="form-group">
+                    <label for="activityType">Activity Type</label>
+                    <input type="text" id="activityType" list="activityTypes" placeholder="Type or select activity" required>
+                    <datalist id="activityTypes">
+                        <!-- Will be populated with existing activities -->
+                    </datalist>
+                </div>
+                <div class="form-group">
+                    <label>Time</label>
+                    <div class="time-inputs">
+                        <input type="time" id="eventStartTime" required>
+                        <span>to</span>
+                        <input type="time" id="eventEndTime" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="eventDescription">Notes (optional)</label>
+                    <textarea id="eventDescription" placeholder="Add any additional notes"></textarea>
+                </div>
+                <button type="submit">Save Activity</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
