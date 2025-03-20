@@ -14,8 +14,8 @@ let colorIndex = 1;
 // Preset schedules
 let defaultSchedules = {
     sleep: {
-        start: '23:00',
-        end: '07:00'
+        start: '22:00',
+        end: '06:00'
     },
     work: {
         start: '09:00',
@@ -36,7 +36,6 @@ const activityList = document.getElementById('activityList');
 const totalTime = document.getElementById('totalTime');
 const summaryPeriod = document.getElementById('summaryPeriod');
 const activityTypes = document.getElementById('activityTypes');
-const dayOverrides = document.getElementById('dayOverrides');
 
 // Sleep schedule elements
 const defaultSleepStart = document.getElementById('defaultSleepStart');
@@ -80,6 +79,10 @@ document.getElementById('applySleepWeekdays').addEventListener('click', () => {
     applyPresetToWeekdays('Sleep');
 });
 
+document.getElementById('applySleepWeekends').addEventListener('click', () => {
+    applyPresetToWeekends('Sleep');
+});
+
 // Work schedule event listeners
 defaultWorkStart.addEventListener('change', updateDefaultWork);
 defaultWorkEnd.addEventListener('change', updateDefaultWork);
@@ -90,6 +93,10 @@ applyWorkAll.addEventListener('click', () => {
 
 document.getElementById('applyWorkWeekdays').addEventListener('click', () => {
     applyPresetToWeekdays('Work');
+});
+
+document.getElementById('applyWorkWeekends').addEventListener('click', () => {
+    applyPresetToWeekends('Work');
 });
 
 function updateDefaultSleep() {
@@ -123,12 +130,107 @@ function applyPresetToAll(type) {
     const weekStart = new Date(currentDate);
     weekStart.setDate(currentDate.getDate() - currentDate.getDay());
     
+    // Clear all events of this type for the entire week first
+    for (let i = 0; i < 8; i++) { // Check 8 days to handle cross-midnight events
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        const dateKey = date.toDateString();
+        
+        if (!events[dateKey]) {
+            events[dateKey] = [];
+        }
+        events[dateKey] = events[dateKey].filter(event => event.activity !== type);
+    }
+    
+    // Handle the overflow from previous Saturday into Sunday morning
+    const [startHour, startMinute] = schedule.start.split(':').map(Number);
+    const [endHour, endMinute] = schedule.end.split(':').map(Number);
+    
+    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+        const sundayKey = weekStart.toDateString();
+        if (!events[sundayKey]) {
+            events[sundayKey] = [];
+        }
+        // Add the midnight to end time event for Sunday morning
+        events[sundayKey].push({
+            activity: type,
+            startTime: '00:00',
+            endTime: schedule.end,
+            description: `${type.toLowerCase()} schedule`
+        });
+    }
+    
+    // Now apply the schedule to each day
     for (let i = 0; i < 7; i++) {
-        applyScheduleToDay(new Date(weekStart.getTime() + i * 24 * 60 * 60 * 1000), type, schedule);
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        
+        // For events that cross midnight
+        const dateKey = date.toDateString();
+        const nextDate = new Date(date);
+        nextDate.setDate(date.getDate() + 1);
+        const nextDateKey = nextDate.toDateString();
+        
+        if (!events[dateKey]) {
+            events[dateKey] = [];
+        }
+        
+        if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+            // Event crosses midnight
+            // Add event for current day (from start time to midnight)
+            events[dateKey].push({
+                activity: type,
+                startTime: schedule.start,
+                endTime: '24:00',
+                description: `${type.toLowerCase()} schedule`
+            });
+            
+            // Add event for next day (from midnight to end time)
+            if (!events[nextDateKey]) {
+                events[nextDateKey] = [];
+            }
+            events[nextDateKey].push({
+                activity: type,
+                startTime: '00:00',
+                endTime: schedule.end,
+                description: `${type.toLowerCase()} schedule`
+            });
+        } else {
+            // Regular event within same day
+            events[dateKey].push({
+                activity: type,
+                startTime: schedule.start,
+                endTime: schedule.end,
+                description: `${type.toLowerCase()} schedule`
+            });
+        }
+    }
+    
+    // Handle the case for events crossing into the next Sunday
+    const lastDay = new Date(weekStart);
+    lastDay.setDate(weekStart.getDate() + 6); // Saturday
+    
+    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+        const nextSunday = new Date(lastDay);
+        nextSunday.setDate(lastDay.getDate() + 1);
+        const nextSundayKey = nextSunday.toDateString();
+        
+        if (!events[nextSundayKey]) {
+            events[nextSundayKey] = [];
+        }
+        
+        // Add the midnight to end time event for next Sunday
+        events[nextSundayKey].push({
+            activity: type,
+            startTime: '00:00',
+            endTime: schedule.end,
+            description: `${type.toLowerCase()} schedule`
+        });
     }
     
     renderCalendar();
     updateActivitySummary();
+    saveToLocalStorage();
 }
 
 function applyPresetToWeekdays(type) {
@@ -136,34 +238,132 @@ function applyPresetToWeekdays(type) {
     const weekStart = new Date(currentDate);
     weekStart.setDate(currentDate.getDate() - currentDate.getDay());
     
+    // Clear all events of this type for the entire week first
+    for (let i = 0; i < 8; i++) { // Check 8 days to handle cross-midnight events
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        const dateKey = date.toDateString();
+        
+        if (!events[dateKey]) {
+            events[dateKey] = [];
+        }
+        events[dateKey] = events[dateKey].filter(event => event.activity !== type);
+    }
+    
+    // Now apply the schedule to weekdays (and Sundays for Sleep)
     for (let i = 0; i < 7; i++) {
-        const date = new Date(weekStart.getTime() + i * 24 * 60 * 60 * 1000);
-        if (date.getDay() !== 0 && date.getDay() !== 6) { // Skip weekends
-            applyScheduleToDay(date, type, schedule);
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        const dayOfWeek = date.getDay();
+        
+        // For Sleep: Apply to all days except Saturday
+        // For Work: Apply to Monday through Friday only
+        if ((type === 'Sleep' && dayOfWeek !== 6) || (type === 'Work' && dayOfWeek > 0 && dayOfWeek < 6)) {
+            const [startHour, startMinute] = schedule.start.split(':').map(Number);
+            const [endHour, endMinute] = schedule.end.split(':').map(Number);
+            
+            const dateKey = date.toDateString();
+            const nextDate = new Date(date);
+            nextDate.setDate(date.getDate() + 1);
+            const nextDateKey = nextDate.toDateString();
+            
+            if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+                // Event crosses midnight
+                events[dateKey].push({
+                    activity: type,
+                    startTime: schedule.start,
+                    endTime: '24:00',
+                    description: `${type.toLowerCase()} schedule`
+                });
+                
+                if (!events[nextDateKey]) {
+                    events[nextDateKey] = [];
+                }
+                events[nextDateKey].push({
+                    activity: type,
+                    startTime: '00:00',
+                    endTime: schedule.end,
+                    description: `${type.toLowerCase()} schedule`
+                });
+            } else {
+                events[dateKey].push({
+                    activity: type,
+                    startTime: schedule.start,
+                    endTime: schedule.end,
+                    description: `${type.toLowerCase()} schedule`
+                });
+            }
         }
     }
     
     renderCalendar();
     updateActivitySummary();
+    saveToLocalStorage();
 }
 
-function applyScheduleToDay(date, type, schedule) {
-    const dateKey = date.toDateString();
+function applyPresetToWeekends(type) {
+    const schedule = type === 'Sleep' ? defaultSchedules.sleep : defaultSchedules.work;
+    const weekStart = new Date(currentDate);
+    weekStart.setDate(currentDate.getDate() - currentDate.getDay());
     
-    if (!events[dateKey]) {
-        events[dateKey] = [];
+    // Clear all events of this type for the entire week first
+    for (let i = 0; i < 8; i++) { // Check 8 days to handle cross-midnight events
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        const dateKey = date.toDateString();
+        
+        if (!events[dateKey]) {
+            events[dateKey] = [];
+        }
+        events[dateKey] = events[dateKey].filter(event => event.activity !== type);
     }
     
-    // Remove existing events of the same type
-    events[dateKey] = events[dateKey].filter(event => event.activity !== type);
+    // Now apply the schedule to weekends
+    for (let i = 0; i < 7; i++) {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + i);
+        
+        if (date.getDay() === 0 || date.getDay() === 6) { // Only weekends
+            const [startHour, startMinute] = schedule.start.split(':').map(Number);
+            const [endHour, endMinute] = schedule.end.split(':').map(Number);
+            
+            const dateKey = date.toDateString();
+            const nextDate = new Date(date);
+            nextDate.setDate(date.getDate() + 1);
+            const nextDateKey = nextDate.toDateString();
+            
+            if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+                // Event crosses midnight
+                events[dateKey].push({
+                    activity: type,
+                    startTime: schedule.start,
+                    endTime: '24:00',
+                    description: `${type.toLowerCase()} schedule`
+                });
+                
+                if (!events[nextDateKey]) {
+                    events[nextDateKey] = [];
+                }
+                events[nextDateKey].push({
+                    activity: type,
+                    startTime: '00:00',
+                    endTime: schedule.end,
+                    description: `${type.toLowerCase()} schedule`
+                });
+            } else {
+                events[dateKey].push({
+                    activity: type,
+                    startTime: schedule.start,
+                    endTime: schedule.end,
+                    description: `${type.toLowerCase()} schedule`
+                });
+            }
+        }
+    }
     
-    // Add new preset event
-    events[dateKey].push({
-        activity: type,
-        startTime: schedule.start,
-        endTime: schedule.end,
-        description: `Default ${type.toLowerCase()} schedule`
-    });
+    renderCalendar();
+    updateActivitySummary();
+    saveToLocalStorage();
 }
 
 // Add event listeners for custom day inputs
@@ -221,6 +421,11 @@ window.addEventListener('click', (event) => {
 
 summaryPeriod.addEventListener('change', updateActivitySummary);
 
+// At the top of the file, add these variables
+const eventSubmitBtn = document.getElementById('eventSubmit');
+const deleteEventBtn = document.getElementById('deleteEventBtn');
+
+// Update the event form submit handler
 eventForm.addEventListener('submit', (e) => {
     e.preventDefault();
     
@@ -241,22 +446,89 @@ eventForm.addEventListener('submit', (e) => {
         events[dateKey] = [];
     }
     
-    // Remove existing events of the same type if it's Sleep or Work
-    if (activity === 'Sleep' || activity === 'Work') {
-        events[dateKey] = events[dateKey].filter(event => event.activity !== activity);
+    // If editing an existing event, remove it first
+    if (selectedSlot.existingEvent) {
+        events[dateKey] = events[dateKey].filter(event => 
+            event !== selectedSlot.existingEvent
+        );
+        
+        // If it's a cross-midnight event, also remove from next day
+        const [startHour, startMinute] = selectedSlot.existingEvent.startTime.split(':').map(Number);
+        const [endHour, endMinute] = selectedSlot.existingEvent.endTime.split(':').map(Number);
+        
+        if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+            const nextDate = new Date(selectedSlot.date);
+            nextDate.setDate(selectedSlot.date.getDate() + 1);
+            const nextDateKey = nextDate.toDateString();
+            
+            if (events[nextDateKey]) {
+                events[nextDateKey] = events[nextDateKey].filter(event =>
+                    !(event.activity === selectedSlot.existingEvent.activity &&
+                      event.startTime === '00:00' &&
+                      event.endTime === selectedSlot.existingEvent.endTime)
+                );
+            }
+        }
     }
     
-    events[dateKey].push({
-        activity,
-        startTime,
-        endTime,
-        description
-    });
+    // Remove existing events of the same type for current and next day if it's Sleep or Work
+    if (activity === 'Sleep' || activity === 'Work') {
+        events[dateKey] = events[dateKey].filter(event => event.activity !== activity);
+        
+        const nextDate = new Date(selectedSlot.date);
+        nextDate.setDate(selectedSlot.date.getDate() + 1);
+        const nextDateKey = nextDate.toDateString();
+        
+        if (!events[nextDateKey]) {
+            events[nextDateKey] = [];
+        }
+        events[nextDateKey] = events[nextDateKey].filter(event => event.activity !== activity);
+    }
+    
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    
+    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+        // Event crosses midnight
+        events[dateKey].push({
+            activity,
+            startTime,
+            endTime: '24:00',
+            description
+        });
+        
+        const nextDate = new Date(selectedSlot.date);
+        nextDate.setDate(selectedSlot.date.getDate() + 1);
+        const nextDateKey = nextDate.toDateString();
+        
+        if (!events[nextDateKey]) {
+            events[nextDateKey] = [];
+        }
+        
+        events[nextDateKey].push({
+            activity,
+            startTime: '00:00',
+            endTime,
+            description
+        });
+    } else {
+        // Regular event within same day
+        events[dateKey].push({
+            activity,
+            startTime,
+            endTime,
+            description
+        });
+    }
     
     modal.style.display = 'none';
     eventForm.reset();
+    if (deleteEventBtn) deleteEventBtn.style.display = 'none';
+    if (eventSubmitBtn) eventSubmitBtn.textContent = 'Add Event';
+    selectedSlot.existingEvent = null;
     renderCalendar();
     updateActivitySummary();
+    saveToLocalStorage();
 });
 
 function renderCalendar() {
@@ -269,9 +541,6 @@ function renderCalendar() {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     weekDisplay.textContent = `${formatDate(weekStart)} - ${formatDate(weekEnd)}`;
-    
-    // Render day overrides
-    renderDayOverrides(weekStart);
     
     for (let i = 0; i < 7; i++) {
         const currentDay = new Date(weekStart);
@@ -466,6 +735,11 @@ function renderEvents() {
         date.setDate(date.getDate() - date.getDay() + index);
         const dateKey = date.toDateString();
         
+        // Check for events that end on this day (crossed from previous day)
+        const prevDate = new Date(date);
+        prevDate.setDate(date.getDate() - 1);
+        const prevDateKey = prevDate.toDateString();
+        
         if (events[dateKey]) {
             events[dateKey].forEach(event => {
                 const eventElement = createEventElement(event);
@@ -492,55 +766,139 @@ function createEventElement(event) {
         <strong>${event.activity}</strong><br>
         ${formatTime(event.startTime)} - ${formatTime(event.endTime)}
     `;
+    
+    // Add click handler for editing
+    element.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent triggering new event creation
+        
+        // Find the date of this event by traversing up to the day-column
+        const column = element.closest('.day-column');
+        const columnIndex = Array.from(column.parentElement.children).indexOf(column);
+        const date = new Date(currentDate);
+        date.setDate(date.getDate() - date.getDay() + columnIndex);
+        
+        selectedSlot = {
+            date: date,
+            existingEvent: event
+        };
+        
+        // Show edit modal
+        document.getElementById('activityType').value = event.activity;
+        document.getElementById('eventStartTime').value = event.startTime;
+        document.getElementById('eventEndTime').value = event.endTime;
+        document.getElementById('eventDescription').value = event.description || '';
+        
+        // Show delete button and update form buttons
+        if (deleteEventBtn) deleteEventBtn.style.display = 'block';
+        if (eventSubmitBtn) eventSubmitBtn.textContent = 'Update Event';
+        
+        modal.style.display = 'block';
+    });
+    
     return element;
 }
 
-function updateActivitySummary() {
-    const period = summaryPeriod.value;
-    const activityTimes = {
-        Sleep: 0,
-        Work: 0,
-        Other: 0
+let pieChart = null; // Store chart instance
+
+function updatePieChart(activityTimes, totalMinutes) {
+    const ctx = document.getElementById('timeDistribution').getContext('2d');
+    
+    // Calculate total minutes in a week (7 days * 24 hours * 60 minutes)
+    const totalWeekMinutes = 7 * 24 * 60;
+    
+    // Calculate unaccounted time
+    const unaccountedMinutes = totalWeekMinutes - totalMinutes;
+    
+    // Add unaccounted time to the data
+    const data = {
+        labels: [...Object.keys(activityTimes), 'Unaccounted'],
+        datasets: [{
+            data: [...Object.values(activityTimes), unaccountedMinutes],
+            backgroundColor: [
+                ...Object.keys(activityTimes).map(activity => {
+                    if (activity === 'Sleep') return '#90A4AE';
+                    if (activity === 'Work') return '#4CAF50';
+                    return `#${Math.floor(Math.random()*16777215).toString(16)}`;
+                }),
+                '#E0E0E0' // Gray color for unaccounted time
+            ],
+            borderWidth: 1
+        }]
     };
+
+    // Destroy existing chart if it exists
+    if (pieChart) {
+        pieChart.destroy();
+    }
+
+    // Create new chart
+    pieChart = new Chart(ctx, {
+        type: 'pie',
+        data: data,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: {
+                            size: 12
+                        }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const value = context.raw;
+                            const hours = Math.floor(value / 60);
+                            const minutes = value % 60;
+                            const percentage = ((value / totalWeekMinutes) * 100).toFixed(1);
+                            return `${hours}h ${minutes}m (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateActivitySummary() {
+    const activityTimes = {};
     let totalMinutes = 0;
+    
+    // Initialize activity times for all activities
+    activities.forEach(activity => {
+        activityTimes[activity] = 0;
+    });
     
     // Calculate time for each activity
     Object.entries(events).forEach(([dateKey, dayEvents]) => {
         const eventDate = new Date(dateKey);
         
-        if (shouldIncludeDate(eventDate, period)) {
+        if (shouldIncludeDate(eventDate, 'week')) {
             dayEvents.forEach(event => {
                 const [startHour, startMinute] = event.startTime.split(':').map(Number);
                 const [endHour, endMinute] = event.endTime.split(':').map(Number);
                 const duration = ((endHour * 60 + endMinute) - (startHour * 60 + startMinute));
                 
-                if (event.activity === 'Sleep') {
-                    activityTimes.Sleep += duration;
-                } else if (event.activity === 'Work') {
-                    activityTimes.Work += duration;
-                } else {
-                    activityTimes.Other += duration;
+                if (!activityTimes[event.activity]) {
+                    activityTimes[event.activity] = 0;
                 }
-                
+                activityTimes[event.activity] += duration;
                 totalMinutes += duration;
             });
         }
     });
     
-    // Update averages
-    const numDays = period === 'week' ? 7 : (period === 'month' ? 30 : Object.keys(events).length);
-    document.getElementById('avgSleep').textContent = formatDuration(activityTimes.Sleep / numDays);
-    document.getElementById('avgWork').textContent = formatDuration(activityTimes.Work / numDays);
-    document.getElementById('avgOther').textContent = formatDuration(activityTimes.Other / numDays);
-    
-    // Update the activity list
+    // Update the activity list with weekly totals
     activityList.innerHTML = Object.entries(activityTimes)
         .filter(([, minutes]) => minutes > 0)
         .sort(([, a], [, b]) => b - a)
         .map(([activity, minutes]) => `
             <div class="activity-item">
                 <div class="activity-name">${activity}</div>
-                <div class="activity-time">${formatDuration(minutes)}</div>
+                <div class="activity-time">${formatDuration(minutes)} per week</div>
             </div>
         `).join('');
     
@@ -549,32 +907,6 @@ function updateActivitySummary() {
     
     // Update pie chart
     updatePieChart(activityTimes, totalMinutes);
-}
-
-function updatePieChart(activityTimes, total) {
-    const pieChart = document.getElementById('timeDistribution');
-    pieChart.innerHTML = '';
-    
-    let startAngle = 0;
-    Object.entries(activityTimes).forEach(([activity, minutes]) => {
-        if (minutes === 0) return;
-        
-        const percentage = (minutes / total) * 100;
-        const endAngle = startAngle + (percentage * 3.6); // 3.6 = 360/100
-        
-        const slice = document.createElement('div');
-        slice.style.position = 'absolute';
-        slice.style.width = '100%';
-        slice.style.height = '100%';
-        slice.style.clip = `rect(0, 100px, 200px, 0)`;
-        slice.style.transform = `rotate(${startAngle}deg)`;
-        slice.style.borderRadius = '50%';
-        slice.style.background = activity === 'Sleep' ? '#90A4AE' : 
-                               activity === 'Work' ? '#4CAF50' : '#FF9800';
-        
-        pieChart.appendChild(slice);
-        startAngle = endAngle;
-    });
 }
 
 function shouldIncludeDate(date, period) {
@@ -649,4 +981,155 @@ function updateCurrentTimeLine() {
         line.style.top = `${currentHour * 60 + currentMinute + 50}px`; // 50px offset for header
         todayColumn.appendChild(line);
     }
-} 
+}
+
+// Update the resetForm function
+function resetForm() {
+    eventForm.reset();
+    if (deleteEventBtn) deleteEventBtn.style.display = 'none';
+    if (eventSubmitBtn) eventSubmitBtn.textContent = 'Add Event';
+    selectedSlot.existingEvent = null;
+}
+
+// Update the delete event handler
+function deleteEvent() {
+    if (!selectedSlot || !selectedSlot.existingEvent) return;
+    
+    const dateKey = selectedSlot.date.toDateString();
+    events[dateKey] = events[dateKey].filter(event => 
+        event !== selectedSlot.existingEvent
+    );
+    
+    // If it's a cross-midnight event, also remove from next day
+    const [startHour, startMinute] = selectedSlot.existingEvent.startTime.split(':').map(Number);
+    const [endHour, endMinute] = selectedSlot.existingEvent.endTime.split(':').map(Number);
+    
+    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+        const nextDate = new Date(selectedSlot.date);
+        nextDate.setDate(selectedSlot.date.getDate() + 1);
+        const nextDateKey = nextDate.toDateString();
+        
+        if (events[nextDateKey]) {
+            events[nextDateKey] = events[nextDateKey].filter(event =>
+                !(event.activity === selectedSlot.existingEvent.activity &&
+                  event.startTime === '00:00' &&
+                  event.endTime === selectedSlot.existingEvent.endTime)
+            );
+        }
+    }
+    
+    modal.style.display = 'none';
+    eventForm.reset();
+    if (deleteEventBtn) deleteEventBtn.style.display = 'none';
+    if (eventSubmitBtn) eventSubmitBtn.textContent = 'Add Event';
+    selectedSlot.existingEvent = null;
+    renderCalendar();
+    updateActivitySummary();
+    saveToLocalStorage();
+}
+
+// Add the delete button to the modal
+document.getElementById('eventModal').querySelector('.modal-content').insertAdjacentHTML(
+    'beforeend',
+    `<button id="deleteEventBtn" style="display: none; background-color: #ff4444; color: white; margin-top: 10px;">Delete Event</button>`
+);
+
+// Add click handler for delete button
+document.getElementById('deleteEventBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (confirm('Are you sure you want to delete this event?')) {
+        deleteEvent();
+    }
+});
+
+closeBtn.addEventListener('click', () => {
+    modal.style.display = 'none';
+    resetForm();
+});
+
+window.addEventListener('click', (event) => {
+    if (event.target === modal) {
+        modal.style.display = 'none';
+        resetForm();
+    }
+});
+
+// Add these functions at the top of the file after the variable declarations
+function saveToLocalStorage() {
+    localStorage.setItem('calendarEvents', JSON.stringify(events));
+    localStorage.setItem('calendarActivities', JSON.stringify(Array.from(activities)));
+    localStorage.setItem('calendarActivityColors', JSON.stringify(activityColors));
+}
+
+function loadFromLocalStorage() {
+    const savedEvents = localStorage.getItem('calendarEvents');
+    const savedActivities = localStorage.getItem('calendarActivities');
+    const savedActivityColors = localStorage.getItem('calendarActivityColors');
+    
+    if (savedEvents) {
+        events = JSON.parse(savedEvents);
+    }
+    if (savedActivities) {
+        activities = new Set(JSON.parse(savedActivities));
+    }
+    if (savedActivityColors) {
+        activityColors = JSON.parse(savedActivityColors);
+    }
+    
+    renderCalendar();
+    updateActivitySummary();
+    updateActivityDatalist();
+}
+
+function clearStorage() {
+    if (confirm('Are you sure you want to clear all calendar data? This cannot be undone.')) {
+        localStorage.removeItem('calendarEvents');
+        localStorage.removeItem('calendarActivities');
+        localStorage.removeItem('calendarActivityColors');
+        events = {};
+        activities = new Set(['Sleep', 'Work']);
+        activityColors = {
+            'Sleep': 'sleep',
+            'Work': 'work'
+        };
+        colorIndex = 1;
+        renderCalendar();
+        updateActivitySummary();
+        updateActivityDatalist();
+    }
+}
+
+// Add the clear button to the page
+function addClearButton() {
+    // First, try to find the controls container
+    let controlsContainer = document.querySelector('.controls');
+    
+    // If it doesn't exist, create it
+    if (!controlsContainer) {
+        controlsContainer = document.createElement('div');
+        controlsContainer.className = 'controls';
+        // Add it near the week display
+        const weekDisplayContainer = document.getElementById('weekDisplay').parentElement;
+        weekDisplayContainer.appendChild(controlsContainer);
+    }
+    
+    // Create the clear button
+    const clearButton = document.createElement('button');
+    clearButton.id = 'clearStorageBtn';
+    clearButton.textContent = 'Clear Calendar';
+    clearButton.style.backgroundColor = '#ff4444';
+    clearButton.style.color = 'white';
+    clearButton.style.marginLeft = '10px';
+    
+    // Add click handler
+    clearButton.addEventListener('click', clearStorage);
+    
+    // Add the button to the controls
+    controlsContainer.appendChild(clearButton);
+}
+
+// Initialize storage and UI when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    loadFromLocalStorage();
+    addClearButton();
+}); 
