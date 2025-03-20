@@ -425,6 +425,30 @@ summaryPeriod.addEventListener('change', updateActivitySummary);
 const eventSubmitBtn = document.getElementById('eventSubmit');
 const deleteEventBtn = document.getElementById('deleteEventBtn');
 
+// Add repeat options HTML to the modal
+document.getElementById('eventModal').querySelector('.modal-content form').insertAdjacentHTML(
+    'beforeend',
+    `<div class="form-group">
+        <label>
+            <input type="checkbox" id="repeatEvent"> Repeat this event
+        </label>
+        <div id="repeatOptions" style="display: none; margin-top: 10px;">
+            <select id="repeatFrequency">
+                <option value="daily">Every Day</option>
+                <option value="weekdays">Weekdays (Mon-Fri)</option>
+                <option value="weekends">Weekends (Sat-Sun)</option>
+                <option value="weekly">Every Week</option>
+                <option value="monthly">Every Month</option>
+            </select>
+        </div>
+    </div>`
+);
+
+// Add event listener for repeat checkbox
+document.getElementById('repeatEvent').addEventListener('change', function() {
+    document.getElementById('repeatOptions').style.display = this.checked ? 'block' : 'none';
+});
+
 // Update the event form submit handler
 eventForm.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -433,6 +457,8 @@ eventForm.addEventListener('submit', (e) => {
     const startTime = document.getElementById('eventStartTime').value;
     const endTime = document.getElementById('eventEndTime').value;
     const description = document.getElementById('eventDescription').value;
+    const repeatEnabled = document.getElementById('repeatEvent').checked;
+    const repeatFrequency = document.getElementById('repeatFrequency').value;
     
     if (!activityColors[activity] && activity !== 'Sleep' && activity !== 'Work') {
         activityColors[activity] = `activity-color-${colorIndex}`;
@@ -441,84 +467,97 @@ eventForm.addEventListener('submit', (e) => {
         updateActivityDatalist();
     }
     
-    const dateKey = selectedSlot.date.toDateString();
-    if (!events[dateKey]) {
-        events[dateKey] = [];
-    }
-    
-    // If editing an existing event, remove it first
-    if (selectedSlot.existingEvent) {
-        events[dateKey] = events[dateKey].filter(event => 
-            event !== selectedSlot.existingEvent
-        );
+    // Function to add event to a specific date
+    const addEventToDate = (date) => {
+        const dateKey = date.toDateString();
+        if (!events[dateKey]) {
+            events[dateKey] = [];
+        }
         
-        // If it's a cross-midnight event, also remove from next day
-        const [startHour, startMinute] = selectedSlot.existingEvent.startTime.split(':').map(Number);
-        const [endHour, endMinute] = selectedSlot.existingEvent.endTime.split(':').map(Number);
+        // Remove existing events of the same type if it's Sleep or Work
+        if (activity === 'Sleep' || activity === 'Work') {
+            events[dateKey] = events[dateKey].filter(event => event.activity !== activity);
+        }
+        
+        const [startHour, startMinute] = startTime.split(':').map(Number);
+        const [endHour, endMinute] = endTime.split(':').map(Number);
         
         if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
-            const nextDate = new Date(selectedSlot.date);
-            nextDate.setDate(selectedSlot.date.getDate() + 1);
+            // Event crosses midnight
+            events[dateKey].push({
+                activity,
+                startTime,
+                endTime: '24:00',
+                description
+            });
+            
+            const nextDate = new Date(date);
+            nextDate.setDate(date.getDate() + 1);
             const nextDateKey = nextDate.toDateString();
             
-            if (events[nextDateKey]) {
-                events[nextDateKey] = events[nextDateKey].filter(event =>
-                    !(event.activity === selectedSlot.existingEvent.activity &&
-                      event.startTime === '00:00' &&
-                      event.endTime === selectedSlot.existingEvent.endTime)
-                );
+            if (!events[nextDateKey]) {
+                events[nextDateKey] = [];
             }
+            
+            events[nextDateKey].push({
+                activity,
+                startTime: '00:00',
+                endTime,
+                description
+            });
+        } else {
+            // Regular event within same day
+            events[dateKey].push({
+                activity,
+                startTime,
+                endTime,
+                description
+            });
         }
-    }
+    };
     
-    // Remove existing events of the same type for current and next day if it's Sleep or Work
-    if (activity === 'Sleep' || activity === 'Work') {
-        events[dateKey] = events[dateKey].filter(event => event.activity !== activity);
+    if (repeatEnabled) {
+        const startDate = new Date(selectedSlot.date);
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 30); // Repeat for 30 days by default
         
-        const nextDate = new Date(selectedSlot.date);
-        nextDate.setDate(selectedSlot.date.getDate() + 1);
-        const nextDateKey = nextDate.toDateString();
+        let currentDate = new Date(startDate);
         
-        if (!events[nextDateKey]) {
-            events[nextDateKey] = [];
+        while (currentDate <= endDate) {
+            const dayOfWeek = currentDate.getDay();
+            const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+            
+            switch (repeatFrequency) {
+                case 'daily':
+                    addEventToDate(currentDate);
+                    break;
+                case 'weekdays':
+                    if (isWeekday) {
+                        addEventToDate(currentDate);
+                    }
+                    break;
+                case 'weekends':
+                    if (isWeekend) {
+                        addEventToDate(currentDate);
+                    }
+                    break;
+                case 'weekly':
+                    if (dayOfWeek === startDate.getDay()) {
+                        addEventToDate(currentDate);
+                    }
+                    break;
+                case 'monthly':
+                    if (currentDate.getDate() === startDate.getDate()) {
+                        addEventToDate(currentDate);
+                    }
+                    break;
+            }
+            
+            currentDate.setDate(currentDate.getDate() + 1);
         }
-        events[nextDateKey] = events[nextDateKey].filter(event => event.activity !== activity);
-    }
-    
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    
-    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
-        // Event crosses midnight
-        events[dateKey].push({
-            activity,
-            startTime,
-            endTime: '24:00',
-            description
-        });
-        
-        const nextDate = new Date(selectedSlot.date);
-        nextDate.setDate(selectedSlot.date.getDate() + 1);
-        const nextDateKey = nextDate.toDateString();
-        
-        if (!events[nextDateKey]) {
-            events[nextDateKey] = [];
-        }
-        
-        events[nextDateKey].push({
-            activity,
-            startTime: '00:00',
-            endTime,
-            description
-        });
     } else {
-        // Regular event within same day
-        events[dateKey].push({
-            activity,
-            startTime,
-            endTime,
-            description
-        });
+        addEventToDate(selectedSlot.date);
     }
     
     modal.style.display = 'none';
@@ -989,6 +1028,10 @@ function resetForm() {
     if (deleteEventBtn) deleteEventBtn.style.display = 'none';
     if (eventSubmitBtn) eventSubmitBtn.textContent = 'Add Event';
     selectedSlot.existingEvent = null;
+    
+    // Reset repeat options
+    document.getElementById('repeatOptions').style.display = 'none';
+    document.getElementById('repeatFrequency').value = 'daily';
 }
 
 // Update the delete event handler
@@ -1132,4 +1175,21 @@ function addClearButton() {
 document.addEventListener('DOMContentLoaded', () => {
     loadFromLocalStorage();
     addClearButton();
-}); 
+});
+
+// Add styles for repeat options
+document.head.insertAdjacentHTML('beforeend', `
+    <style>
+        #repeatOptions select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        #repeatEvent {
+            margin-right: 8px;
+        }
+    </style>
+`); 
