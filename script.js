@@ -425,32 +425,152 @@ summaryPeriod.addEventListener('change', updateActivitySummary);
 const eventSubmitBtn = document.getElementById('eventSubmit');
 const deleteEventBtn = document.getElementById('deleteEventBtn');
 
-// Add repeat options HTML to the modal
-document.getElementById('eventModal').querySelector('.modal-content form').insertAdjacentHTML(
-    'beforeend',
-    `<div class="form-group">
-        <label>
-            <input type="checkbox" id="repeatEvent"> Repeat this event
-        </label>
-        <div id="repeatOptions" style="display: none; margin-top: 10px;">
-            <select id="repeatFrequency">
-                <option value="daily">Every Day</option>
-                <option value="weekdays">Weekdays (Mon-Fri)</option>
-                <option value="weekends">Weekends (Sat-Sun)</option>
-                <option value="weekly">Every Week</option>
-                <option value="monthly">Every Month</option>
-            </select>
+// Update the modal buttons
+document.getElementById('eventModal').querySelector('.modal-content').innerHTML = `
+    <span class="close">&times;</span>
+    <h3 id="modalTitle">Add Activity</h3>
+    <form id="eventForm">
+        <div class="form-group">
+            <label for="activityType">Activity Type</label>
+            <input type="text" id="activityType" list="activityTypes" placeholder="Type or select activity" required>
+            <datalist id="activityTypes">
+                <!-- Will be populated with existing activities -->
+            </datalist>
         </div>
-    </div>`
-);
+        <div class="form-group">
+            <label>Time</label>
+            <div class="time-inputs">
+                <input type="time" id="eventStartTime" required>
+                <span>to</span>
+                <input type="time" id="eventEndTime" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="eventDescription">Notes (optional)</label>
+            <textarea id="eventDescription" placeholder="Add any additional notes"></textarea>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="repeatEvent"> Repeat this event
+            </label>
+            <div id="repeatOptions" style="display: none; margin-top: 10px;">
+                <select id="repeatFrequency">
+                    <option value="daily">Every Day</option>
+                    <option value="weekdays">Weekdays (Mon-Fri)</option>
+                    <option value="weekends">Weekends (Sat-Sun)</option>
+                    <option value="weekly">Every Week</option>
+                    <option value="monthly">Every Month</option>
+                </select>
+            </div>
+        </div>
+        <div class="button-group">
+            <button type="submit" id="eventSubmit">Add Event</button>
+        </div>
+    </form>
+    <div class="button-group delete-buttons" id="deleteButtons" style="display: none;">
+        <button id="deleteEventBtn" style="background-color: #ff4444; color: white;">Delete This Event</button>
+        <button id="deleteSeriesBtn" style="background-color: #ff4444; color: white;">Delete All Repeating Events</button>
+    </div>
+`;
 
-// Add event listener for repeat checkbox
+// Add styles for the modal and buttons
+document.head.insertAdjacentHTML('beforeend', `
+    <style>
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 25px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .button-group button:hover {
+            opacity: 0.9;
+        }
+        
+        #eventSubmit {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .delete-buttons {
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .time-inputs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .time-inputs input {
+            flex: 1;
+        }
+
+        #eventForm input,
+        #eventForm select,
+        #eventForm textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        #eventForm textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        #repeatOptions {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+        }
+    </style>
+`);
+
+// Re-attach event listeners after updating modal content
 document.getElementById('repeatEvent').addEventListener('change', function() {
     document.getElementById('repeatOptions').style.display = this.checked ? 'block' : 'none';
 });
 
-// Update the event form submit handler
-eventForm.addEventListener('submit', (e) => {
+// Add back the event form submission handler
+document.getElementById('eventForm').addEventListener('submit', (e) => {
     e.preventDefault();
     
     const activity = document.getElementById('activityType').value;
@@ -482,13 +602,18 @@ eventForm.addEventListener('submit', (e) => {
         const [startHour, startMinute] = startTime.split(':').map(Number);
         const [endHour, endMinute] = endTime.split(':').map(Number);
         
+        // Generate a unique ID for this event series
+        const eventSeriesId = repeatEnabled ? Date.now().toString() : null;
+        
         if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
             // Event crosses midnight
             events[dateKey].push({
                 activity,
                 startTime,
                 endTime: '24:00',
-                description
+                description,
+                eventSeriesId,
+                repeatFrequency: repeatEnabled ? repeatFrequency : null
             });
             
             const nextDate = new Date(date);
@@ -503,7 +628,9 @@ eventForm.addEventListener('submit', (e) => {
                 activity,
                 startTime: '00:00',
                 endTime,
-                description
+                description,
+                eventSeriesId,
+                repeatFrequency: repeatEnabled ? repeatFrequency : null
             });
         } else {
             // Regular event within same day
@@ -511,7 +638,9 @@ eventForm.addEventListener('submit', (e) => {
                 activity,
                 startTime,
                 endTime,
-                description
+                description,
+                eventSeriesId,
+                repeatFrequency: repeatEnabled ? repeatFrequency : null
             });
         }
     };
@@ -561,13 +690,29 @@ eventForm.addEventListener('submit', (e) => {
     }
     
     modal.style.display = 'none';
-    eventForm.reset();
-    if (deleteEventBtn) deleteEventBtn.style.display = 'none';
-    if (eventSubmitBtn) eventSubmitBtn.textContent = 'Add Event';
-    selectedSlot.existingEvent = null;
+    resetForm();
     renderCalendar();
     updateActivitySummary();
     saveToLocalStorage();
+});
+
+document.getElementById('deleteEventBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (confirm('Are you sure you want to delete this event?')) {
+        deleteEvent(false);
+    }
+});
+
+document.getElementById('deleteSeriesBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    if (confirm('Are you sure you want to delete all instances of this repeating event?')) {
+        deleteEvent(true);
+    }
+});
+
+document.querySelector('.close').addEventListener('click', () => {
+    modal.style.display = 'none';
+    resetForm();
 });
 
 function renderCalendar() {
@@ -804,6 +949,7 @@ function createEventElement(event) {
     element.innerHTML = `
         <strong>${event.activity}</strong><br>
         ${formatTime(event.startTime)} - ${formatTime(event.endTime)}
+        ${event.repeatFrequency ? `<br><small>(${formatRepeatFrequency(event.repeatFrequency)})</small>` : ''}
     `;
     
     // Add click handler for editing
@@ -821,15 +967,24 @@ function createEventElement(event) {
             existingEvent: event
         };
         
+        // Update modal title
+        document.getElementById('modalTitle').textContent = 'Edit Activity';
+        
         // Show edit modal
         document.getElementById('activityType').value = event.activity;
         document.getElementById('eventStartTime').value = event.startTime;
         document.getElementById('eventEndTime').value = event.endTime;
         document.getElementById('eventDescription').value = event.description || '';
         
-        // Show delete button and update form buttons
-        if (deleteEventBtn) deleteEventBtn.style.display = 'block';
-        if (eventSubmitBtn) eventSubmitBtn.textContent = 'Update Event';
+        // Show delete buttons
+        const deleteButtons = document.getElementById('deleteButtons');
+        deleteButtons.style.display = 'flex';
+        
+        // Show/hide series delete button based on whether it's a repeating event
+        document.getElementById('deleteSeriesBtn').style.display = event.eventSeriesId ? 'block' : 'none';
+        
+        // Update submit button text
+        document.getElementById('eventSubmit').textContent = 'Update Event';
         
         modal.style.display = 'block';
     });
@@ -1025,45 +1180,53 @@ function updateCurrentTimeLine() {
 // Update the resetForm function
 function resetForm() {
     eventForm.reset();
-    if (deleteEventBtn) deleteEventBtn.style.display = 'none';
-    if (eventSubmitBtn) eventSubmitBtn.textContent = 'Add Event';
-    selectedSlot.existingEvent = null;
-    
-    // Reset repeat options
+    document.getElementById('modalTitle').textContent = 'Add Activity';
+    document.getElementById('deleteButtons').style.display = 'none';
+    document.getElementById('eventSubmit').textContent = 'Add Event';
     document.getElementById('repeatOptions').style.display = 'none';
     document.getElementById('repeatFrequency').value = 'daily';
+    selectedSlot.existingEvent = null;
 }
 
 // Update the delete event handler
-function deleteEvent() {
+function deleteEvent(deleteAll = false) {
     if (!selectedSlot || !selectedSlot.existingEvent) return;
     
-    const dateKey = selectedSlot.date.toDateString();
-    events[dateKey] = events[dateKey].filter(event => 
-        event !== selectedSlot.existingEvent
-    );
+    const event = selectedSlot.existingEvent;
     
-    // If it's a cross-midnight event, also remove from next day
-    const [startHour, startMinute] = selectedSlot.existingEvent.startTime.split(':').map(Number);
-    const [endHour, endMinute] = selectedSlot.existingEvent.endTime.split(':').map(Number);
-    
-    if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
-        const nextDate = new Date(selectedSlot.date);
-        nextDate.setDate(selectedSlot.date.getDate() + 1);
-        const nextDateKey = nextDate.toDateString();
+    if (deleteAll && event.eventSeriesId) {
+        // Delete all events in the series
+        Object.keys(events).forEach(dateKey => {
+            events[dateKey] = events[dateKey].filter(e => e.eventSeriesId !== event.eventSeriesId);
+        });
+    } else {
+        // Delete single event
+        const dateKey = selectedSlot.date.toDateString();
+        events[dateKey] = events[dateKey].filter(e => e !== event);
         
-        if (events[nextDateKey]) {
-            events[nextDateKey] = events[nextDateKey].filter(event =>
-                !(event.activity === selectedSlot.existingEvent.activity &&
-                  event.startTime === '00:00' &&
-                  event.endTime === selectedSlot.existingEvent.endTime)
-            );
+        // If it's a cross-midnight event, also remove from next day
+        const [startHour, startMinute] = event.startTime.split(':').map(Number);
+        const [endHour, endMinute] = event.endTime.split(':').map(Number);
+        
+        if (endHour < startHour || (endHour === startHour && endMinute <= startMinute)) {
+            const nextDate = new Date(selectedSlot.date);
+            nextDate.setDate(selectedSlot.date.getDate() + 1);
+            const nextDateKey = nextDate.toDateString();
+            
+            if (events[nextDateKey]) {
+                events[nextDateKey] = events[nextDateKey].filter(e =>
+                    !(e.eventSeriesId === event.eventSeriesId &&
+                      e.startTime === '00:00' &&
+                      e.endTime === event.endTime)
+                );
+            }
         }
     }
     
     modal.style.display = 'none';
     eventForm.reset();
     if (deleteEventBtn) deleteEventBtn.style.display = 'none';
+    if (deleteSeriesBtn) deleteSeriesBtn.style.display = 'none';
     if (eventSubmitBtn) eventSubmitBtn.textContent = 'Add Event';
     selectedSlot.existingEvent = null;
     renderCalendar();
@@ -1071,31 +1234,27 @@ function deleteEvent() {
     saveToLocalStorage();
 }
 
-// Add the delete button to the modal
-document.getElementById('eventModal').querySelector('.modal-content').insertAdjacentHTML(
-    'beforeend',
-    `<button id="deleteEventBtn" style="display: none; background-color: #ff4444; color: white; margin-top: 10px;">Delete Event</button>`
-);
-
-// Add click handler for delete button
-document.getElementById('deleteEventBtn').addEventListener('click', (e) => {
-    e.preventDefault();
-    if (confirm('Are you sure you want to delete this event?')) {
-        deleteEvent();
-    }
-});
-
-closeBtn.addEventListener('click', () => {
-    modal.style.display = 'none';
-    resetForm();
-});
-
-window.addEventListener('click', (event) => {
-    if (event.target === modal) {
-        modal.style.display = 'none';
-        resetForm();
-    }
-});
+// Add styles for the button group
+document.head.insertAdjacentHTML('beforeend', `
+    <style>
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .button-group button:hover {
+            opacity: 0.9;
+        }
+    </style>
+`);
 
 // Add these functions at the top of the file after the variable declarations
 function saveToLocalStorage() {
@@ -1190,6 +1349,40 @@ document.head.insertAdjacentHTML('beforeend', `
         
         #repeatEvent {
             margin-right: 8px;
+        }
+    </style>
+`);
+
+// Add helper function to format repeat frequency
+function formatRepeatFrequency(frequency) {
+    switch (frequency) {
+        case 'daily': return 'Repeats daily';
+        case 'weekdays': return 'Repeats on weekdays';
+        case 'weekends': return 'Repeats on weekends';
+        case 'weekly': return 'Repeats weekly';
+        case 'monthly': return 'Repeats monthly';
+        default: return '';
+    }
+}
+
+// Add styles for the button group
+document.head.insertAdjacentHTML('beforeend', `
+    <style>
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .button-group button:hover {
+            opacity: 0.9;
         }
     </style>
 `); 
